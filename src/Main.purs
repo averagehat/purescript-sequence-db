@@ -1,12 +1,81 @@
 module Main where
 
 import Prelude
+import qualified Halogen.HTML.Indexed as H
+import Data.Either 
 import Control.Monad.Eff
 import Control.Monad.Eff.Console
 import Data.Date -- https://github.com/purescript/purescript-datetime
 import Data.Maybe
+import Data.Traversable
+import Data.Foreign.Class (read)
+import Data.Enum (enumFromTo)
+import qualified Halogen.HTML.Properties.Indexed as P
+import Control.Monad.Eff.JQuery as J
 data Serotype = DENV1 | DENV2 | DENV3 | DENV4
 data Host = Human | Mosquito
+foo :: Maybe Int
+foo = Just 1
+
+--rangeSelector s xs = do
+s = "foo!"
+month = January
+--  flip (J.on "change") input $ \_ _ -> do
+--    Right msg <- read <$> J.getValue input
+--    J.setText ("send: " ++ msg)
+--rangeSelect :: forall a. (Show a, Traversable t) => String -> [a] -> J
+rangeSelect s xs = J.ready $ do
+  select <- J.create "<select>"
+  J.setAttr "id" s select
+  traverse (makeOption select) xs
+  return select 
+  where makeOption select x = do
+          option <- J.create "<option>"
+          J.setText  x option
+          J.setAttr "value" x option
+          J.append option select
+          
+main = J.ready $ do
+  body <- J.body
+  select <- rangeSelect "month" enumFromTo January December
+  J.append select body
+  text  <- J.create "<p>"
+  J.setText "BAR" text
+  J.append text body
+  
+  
+--main = J.ready $ do 
+--  body <- J.body
+--  select <- J.create "<select>"
+--  J.setAttr "id" s select
+--  option <- J.create "<option>"
+--  J.setText (show month) option
+--  J.setAttr "value" month option
+--  text  <- J.create "<p>"
+--  J.setText "BAR" text
+--  J.append option select
+--  J.append select body
+--  J.append text body
+  
+--  J.on "change" (handleChange select text) select
+--  where
+--  handleChange input text _ _ = do
+--    Right name <- read <$> J.getValue input
+--    log $ "Name changed to " ++ name
+--    J.setText ("Hello, " ++ name) text
+--months = enumFromTo January December
+--rangeSelector :: forall a. (Show a) => String -> [a] -> Html
+--rangeSelector s xs = [H.select [P.id_ s] (map (option . show) xs)]
+--  where option x = H.option [P.value x] 
+-- [H.ul, [P.id_ "queryForm"]
+--  [H.input [P.id_ "query"]]
+--  [H.input [P.id_ "name"]]
+--  (rangeSelector "month" months),
+--  (rangeSelector "year"   (range 1900 2016))
+--  (rangeSelector "day"   (range 1 31))
+--  [H.input [P.id_ "query"]]
+--  [H.input [P.id_ "query"]]
+       
 -- seqname is sometimes header'd as Strain
 -- may include more granular location? 
 type RichEntry = { seqname  :: String
@@ -26,6 +95,7 @@ type AppState = { collection :: String
 
 data Format = Fasta | Record
 
-main :: forall e. Eff (console :: CONSOLE | e) Unit
-main = do
-  log "Hello sai!"
+-- foo
+--main :: forall e. Eff (console :: CONSOLE | e) Unit
+--main = do
+--  log "Hello sai!"
