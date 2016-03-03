@@ -9,6 +9,7 @@ import DOM
 import Data.Date -- https://github.com/purescript/purescript-datetime
 import Data.Maybe
 import Data.Traversable
+import Data.Foldable
 import Data.Foreign.Class (read)
 import Data.Enum (enumFromTo)
 import qualified Halogen.HTML.Properties.Indexed as P
@@ -19,7 +20,7 @@ foo :: Maybe Int
 foo = Just 1
 
 --rangeSelector s xs = do
-s = "foo!"
+s = "foo"
 month = January
 --  flip (J.on "change") input $ \_ _ -> do
 --    Right msg <- read <$> J.getValue input
@@ -29,25 +30,27 @@ month = January
 --                                                   | t2
 --                                                   )
 --                                               J.JQuery 
-rangeSelect :: forall t2. String -> Array String -> Eff (dom :: DOM
+rangeSelect :: forall t2. J.JQuery ->  String -> Array String -> Eff (dom :: DOM
                                                    | t2
                                                    )
                                                J.JQuery 
-rangeSelect s xs = J.ready $ do
-  select <- J.create "<select>"
-  J.setAttr "id" s select
-  traverse (makeOption select) xs
+rangeSelect select s xs = J.ready $ do
+  traverse makeOption  xs
   --select 
   where
-    makeOption select x = do
+    makeOption s = J.ready $ do
           option <- J.create "<option>"
-          J.setText  x option
-          J.setAttr "value" x option
+          J.setText  s option
+          J.setAttr "value" s option
           J.append option select
+          return option
           
 main = J.ready $ do
   body <- J.body
-  select <- rangeSelect "month" $ map show $ enumFromTo January December
+  select <- J.create "<select>"
+  J.setAttr "id" s select
+  options <- rangeSelect select "month" $ map show $ enumFromTo January December
+  --traverse (\o -> J.append o select) options
   text  <- J.create "<p>"
   J.setText "BAR" text
   J.append text body
