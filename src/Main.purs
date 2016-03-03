@@ -5,6 +5,7 @@ import qualified Halogen.HTML.Indexed as H
 import Data.Either 
 import Control.Monad.Eff
 import Control.Monad.Eff.Console
+import DOM
 import Data.Date -- https://github.com/purescript/purescript-datetime
 import Data.Maybe
 import Data.Traversable
@@ -24,12 +25,21 @@ month = January
 --    Right msg <- read <$> J.getValue input
 --    J.setText ("send: " ++ msg)
 --rangeSelect :: forall a. (Show a, Traversable t) => String -> [a] -> J
+--rangeSelect :: forall t t2. (Traversable t) =>  String -> t -> Eff (dom :: DOM
+--                                                   | t2
+--                                                   )
+--                                               J.JQuery 
+rangeSelect :: forall t2. String -> Array String -> Eff (dom :: DOM
+                                                   | t2
+                                                   )
+                                               J.JQuery 
 rangeSelect s xs = J.ready $ do
   select <- J.create "<select>"
   J.setAttr "id" s select
   traverse (makeOption select) xs
-  return select 
-  where makeOption select x = do
+  --select 
+  where
+    makeOption select x = do
           option <- J.create "<option>"
           J.setText  x option
           J.setAttr "value" x option
@@ -37,11 +47,12 @@ rangeSelect s xs = J.ready $ do
           
 main = J.ready $ do
   body <- J.body
-  select <- rangeSelect "month" enumFromTo January December
-  J.append select body
+  select <- rangeSelect "month" $ map show $ enumFromTo January December
   text  <- J.create "<p>"
   J.setText "BAR" text
   J.append text body
+  J.append select body
+  
   
   
 --main = J.ready $ do 
