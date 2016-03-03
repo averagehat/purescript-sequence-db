@@ -9,9 +9,12 @@ import DOM
 import Data.Date -- https://github.com/purescript/purescript-datetime
 import Data.Maybe
 import Data.Traversable
+import Control.Apply
 import Data.Foldable
+import Data.Array 
 import Data.Foreign.Class (read)
 import Data.Enum (enumFromTo)
+import Data.Tuple
 import qualified Halogen.HTML.Properties.Indexed as P
 import Control.Monad.Eff.JQuery as J
 data Serotype = DENV1 | DENV2 | DENV3 | DENV4
@@ -22,21 +25,13 @@ foo = Just 1
 --rangeSelector s xs = do
 s = "foo"
 month = January
---  flip (J.on "change") input $ \_ _ -> do
---    Right msg <- read <$> J.getValue input
---    J.setText ("send: " ++ msg)
---rangeSelect :: forall a. (Show a, Traversable t) => String -> [a] -> J
---rangeSelect :: forall t t2. (Traversable t) =>  String -> t -> Eff (dom :: DOM
---                                                   | t2
---                                                   )
---                                               J.JQuery 
-rangeSelect :: forall t2. J.JQuery ->  String -> Array String -> Eff (dom :: DOM
+
+rangeSelect :: forall t2. J.JQuery -> Array String -> Eff (dom :: DOM
                                                    | t2
                                                    )
                                                J.JQuery 
-rangeSelect select s xs = J.ready $ do
-  traverse makeOption  xs
-  --select 
+rangeSelect select xs = J.ready $ do
+  traverse makeOption xs
   where
     makeOption s = J.ready $ do
           option <- J.create "<option>"
@@ -44,19 +39,34 @@ rangeSelect select s xs = J.ready $ do
           J.setAttr "value" s option
           J.append option select
           return option
-          
+-- > (+) <$> (Just 1) <*> (Just 2)
+-- lift doesn'w work because stuff gets double wrapped. 
+-- i.e. head <$> tail xs :: Maybe Maybe a   (so use >>=)
+pair xs = case xs of
+  [] -> Just([])
+  xs -> lift2 (:) ((tail xs >>= head) >>= (\b -> (head xs) >>= \a -> Just(Tuple a b)))  (tail xs >>= tail >>= pair)
+
+pair' xs = case xs of
+  [] -> Just([])
+  xs -> (:) <$> ((tail xs >>= head) >>= (\a -> (Tuple a) <$> (head xs) )) <*> (tail xs >>= tail >>= pair')
+-- pair xs = (lift2 Tuple (head xs) (head <$> tail xs)) (pair $ tail <$> tail xs)
+--_p opts xs = do
+--  p <- J.create "<p>"
+--  traverse (\(f,v) -> J.setAttr f v p) $ pair opts
+withId h id = J.create h >>= (J.setAttr "id" s) >>= return
 main = J.ready $ do
   body <- J.body
-  select <- J.create "<select>"
-  J.setAttr "id" s select
-  options <- rangeSelect select "month" $ map show $ enumFromTo January December
-  text  <- J.create "<p>"
+  select <- withId "<select>" "month"
+  -- rangeSelect also adds all options as select's children
+  options <- rangeSelect select $ map show $ enumFromTo January December
+  text  <- J.create "<p>" 
   btn  <- J.create "<button>"
   -- these haven't been created yet
   J.setText "unclicked" text
-  J.append text body
-  J.append select body
-  J.append btn body
+  traverse (flip J.append body) [text, select, btn]
+--  J.append text body
+--  J.append select body
+--  J.append btn body
   J.on "click" (handleClick select text) btn
   where
     handleClick input text _ _  = do
