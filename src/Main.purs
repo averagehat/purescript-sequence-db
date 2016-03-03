@@ -52,9 +52,24 @@ main = J.ready $ do
   options <- rangeSelect select "month" $ map show $ enumFromTo January December
   --traverse (\o -> J.append o select) options
   text  <- J.create "<p>"
-  J.setText "BAR" text
+  btn  <- J.create "<button>"
+  -- these haven't been created yet
+  J.setText "unclicked" text
   J.append text body
   J.append select body
+  J.append btn body
+  J.on "click" (handleClick select text) btn
+  where
+    handleClick input text _ _  = do
+       Right v <- read <$> J.getValue input
+       J.setText v text
+     --selected <- J.select ("#" ++ s)
+--  J.on "change" (handleChange select text) select
+--  where
+--  handleChange input text _ _ = do
+--    Right name <- read <$> J.getValue input
+--    log $ "Name changed to " ++ name
+--    J.setText ("Hello, " ++ name) text
   
   
   
