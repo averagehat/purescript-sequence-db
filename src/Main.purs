@@ -50,7 +50,6 @@ main = J.ready $ do
   select <- J.create "<select>"
   J.setAttr "id" s select
   options <- rangeSelect select "month" $ map show $ enumFromTo January December
-  --traverse (\o -> J.append o select) options
   text  <- J.create "<p>"
   btn  <- J.create "<button>"
   -- these haven't been created yet
@@ -61,8 +60,16 @@ main = J.ready $ do
   J.on "click" (handleClick select text) btn
   where
     handleClick input text _ _  = do
-       Right v <- read <$> J.getValue input
-       J.setText v text
+      v <- selectValue s
+      J.setText v text
+
+--   No type class instance was found for . .. can often be cured by providing type signature
+selectValue ::  forall t5. String -> Eff ( dom :: DOM | t5) String 
+selectValue s = do
+   res <- J.select ("#" ++ s)
+   Right v <- read <$> J.getValue res
+   return v
+
      --selected <- J.select ("#" ++ s)
 --  J.on "change" (handleChange select text) select
 --  where
