@@ -22,15 +22,12 @@ data Host = Human | Mosquito
 foo :: Maybe Int
 foo = Just 1
 
---rangeSelector s xs = do
+--rangeOptionsor s xs = do
 s = "foo"
 month = January
 
-rangeSelect :: forall t2. J.JQuery -> Array String -> Eff (dom :: DOM
-                                                   | t2
-                                                   )
-                                               J.JQuery 
-rangeSelect select xs = J.ready $ do
+rangeOptions' :: forall t2. J.JQuery -> Array String -> Eff (dom :: DOM | t2) J.JQuery 
+rangeOptions' select xs = J.ready $ do
   traverse makeOption xs
   where
     makeOption s = J.ready $ do
@@ -53,29 +50,49 @@ pair' xs = case xs of
 --_p opts xs = do
 --  p <- J.create "<p>"
 --  traverse (\(f,v) -> J.setAttr f v p) $ pair opts
-withId h id = J.create h >>= (J.setAttr "id" s) >>= return
+  
+
+--rangeOptions' :: forall t2. Array String -> Eff (dom :: DOM | t2) Array J.JQuery
+rangeOptions :: forall t57 t61. Array String -> Eff ( dom :: DOM
+                                        | t57
+                                        )
+                                    (Array J.JQuery)
+
+rangeOptions = traverse makeOption
+  where makeOption x = withAttr "<option>" "value" x >>= (J.setText x) >>= return
+--    makeOption x =  do
+--          option <- withAttr "<option>" "value" x
+--          J.setText  x option
+--          return option
+          
+withAttr h f v = J.create h >>= (J.setAttr f v) >>= return
+withId h id = withAttr h "id" id
+appendAll  ::    forall t171 t178. (Traversable t171) => J.JQuery -> t171 J.JQuery -> Eff ( dom :: DOM | t178) Unit --(t171 JQuery) 
+appendAll x xs = traverse_ (flip J.append x) xs
+rangeDropdown id xs = do
+   select <- withId "<select>" id
+   options <- rangeOptions xs
+   appendAll select options
+   return select
 main = J.ready $ do
   body <- J.body
-  select <- withId "<select>" "month"
-  -- rangeSelect also adds all options as select's children
-  options <- rangeSelect select $ map show $ enumFromTo January December
-  text  <- J.create "<p>" 
+  select <- rangeDropdown "month" (map show $ enumFromTo January December)
+--  select <- withId "<select>" "month"
+  -- rangeOptions also adds all options as select's children
+--  options <- rangeOptions select $ map show $ enumFromTo January December
   btn  <- J.create "<button>"
-  -- these haven't been created yet
+  text  <- J.create "<p>" 
   J.setText "unclicked" text
-  traverse (flip J.append body) [text, select, btn]
---  J.append text body
---  J.append select body
---  J.append btn body
   J.on "click" (handleClick select text) btn
+  traverse (flip J.append body) [text, select, btn]
   where
     handleClick input text _ _  = do
-      v <- selectValue s
+      v <- selectId "month"
       J.setText v text
 
 --   No type class instance was found for . .. can often be cured by providing type signature
-selectValue ::  forall t5. String -> Eff ( dom :: DOM | t5) String 
-selectValue s = do
+selectId ::  forall t5. String -> Eff ( dom :: DOM | t5) String 
+selectId s = do
    res <- J.select ("#" ++ s)
    Right v <- read <$> J.getValue res
    return v
@@ -110,15 +127,15 @@ selectValue s = do
 --    log $ "Name changed to " ++ name
 --    J.setText ("Hello, " ++ name) text
 --months = enumFromTo January December
---rangeSelector :: forall a. (Show a) => String -> [a] -> Html
---rangeSelector s xs = [H.select [P.id_ s] (map (option . show) xs)]
+--rangeOptionsor :: forall a. (Show a) => String -> [a] -> Html
+--rangeOptionsor s xs = [H.select [P.id_ s] (map (option . show) xs)]
 --  where option x = H.option [P.value x] 
 -- [H.ul, [P.id_ "queryForm"]
 --  [H.input [P.id_ "query"]]
 --  [H.input [P.id_ "name"]]
---  (rangeSelector "month" months),
---  (rangeSelector "year"   (range 1900 2016))
---  (rangeSelector "day"   (range 1 31))
+--  (rangeOptionsor "month" months),
+--  (rangeOptionsor "year"   (range 1900 2016))
+--  (rangeOptionsor "day"   (range 1 31))
 --  [H.input [P.id_ "query"]]
 --  [H.input [P.id_ "query"]]
        
