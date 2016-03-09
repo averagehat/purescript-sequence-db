@@ -33,6 +33,21 @@ type RichEntry = { seqname  :: String
                  , host     :: Host
                  , serotype :: Serotype
                  , sequence :: String }
+                 
+type Query = {    seqname  :: Maybe String
+                 , acc      :: Maybe String
+                 , sequence :: Maybe String
+                 , minYear  :: Maybe Year
+                 , maxYear  :: Maybe Year
+                 , minMonth :: Maybe Month
+                 , maxMonth :: Maybe Month
+                 , minDay   :: Maybe Int
+                 , maxday   :: Maybe Int
+                 , disease  :: Maybe String
+                 , country  :: Maybe String
+                 , host     :: Maybe Host
+                 , serotype :: Maybe Serotype }
+             
 -- serotypes also act as collection names
 data Host = Human | Mosquito
 data Serotype = DENV1 | DENV2 | DENV3 | DENV4
@@ -55,19 +70,37 @@ rangeDropdown id xs = do
    options <- rangeOptions xs
    appendAll select options
    return select
-   
+
 main = J.ready $ do
   body <- J.body
   select <- rangeDropdown "month" (map show $ enumFromTo January December)
   btn  <- J.create "<button>"
   text  <- J.create "<p>" 
   J.setText "unclicked" text
-  traverse (flip J.append body) [text, select, btn]
+  traverse_ (flip J.append body) [text, select, btn] -- was traverse (flip ...
   J.on "click" (handleClick select text) btn
   where
     handleClick input text _ _  = do
       v <- selectId "month"
       J.setText v text
+-- validating query must check that at least one field is not nothing.
+match :: Query -> RichEntry -> Bool
+match q x = 
+  q.acc ==? x.acc &&
+  q.name ==? x.name &&
+  q.serotype ==? x.serotype &&
+  datesMatch q x &&
+  q  ==? x 
+  where
+    (==?) :: forall a b. (Eq a b) => Maybe a -> b -> Bool
+    (==?) a b = fromMaybe False $ fmap (== b) a
+    between min max x = fromMaybe true $ lift2 between min max x
+      where between' min max x = (min <= x) && (x <= max)
+    datesMatch q x =
+      between q.minYear q.maxYear (Just x.year) && 
+      between q.minMonth q.maxMonth x.month && 
+      between q.minDay q.maxDay x.year 
+      --(==) <$> (Just 2) <*> (Just 2)
 
   -- do validation and convert fields to types and put all together into a record(?)
   -- TODO: switch <select> to store an int value, and use with
