@@ -7,7 +7,7 @@ import DOM -- needed for type signatures
 import Data.Either 
 import Data.Maybe
 import Html as H
-import Data.Date -- https://github.com/purescript/purescript-datetime
+import Data.Date hiding (fromString) -- https://github.com/purescript/purescript-datetime
 import Data.Traversable -- traverse
 import Control.Apply -- <$>
 import Data.Foldable -- traverse_?
@@ -15,6 +15,7 @@ import Data.Array (range,  head, length, filter)
 import Data.String (trim)
 import Data.Foreign.Class (read)
 import Data.Enum (enumFromTo)
+import Data.Int (fromString)
 -- import Data.Tuple
 --import qualified Halogen.HTML.Properties.Indexed as P
 import Control.Monad.Eff.JQuery as J
@@ -122,11 +123,11 @@ main = do
   acc <- makeTextInput "acc"
   country <- makeTextInput "country"
   minmonthSelect <-  rangeDropdown "minmonth" $ map show $ enumFromTo January December
---  minyearSelect <-   rangeDropdown "minyear"  $ map show $ range 1900 2016
---  mindaySelect <-    rangeDropdown "minday"   $ map show $ range 1 31
---  maxmonthSelect <-  rangeDropdown "maxmonth" $ map show $ enumFromTo January December
---  maxyearSelect <-   rangeDropdown "maxyear"  $ map show $ range 1900 2016
---  maxdaySelect <-    rangeDropdown "maxday"   $ map show $ range 1 31
+  minyearSelect <-   rangeDropdown "minyear"  $ map show $ range 1900 2016
+  mindaySelect <-    rangeDropdown "minday"   $ map show $ range 1 31
+  maxmonthSelect <-  rangeDropdown "maxmonth" $ map show $ enumFromTo January December
+  maxyearSelect <-   rangeDropdown "maxyear"  $ map show $ range 1900 2016
+  maxdaySelect <-    rangeDropdown "maxday"   $ map show $ range 1 31
   serotypeSelect <- rangeDropdown  "serotype" $ map show $ serotypes
   segmentSelect <- rangeDropdown  "segment" $ map show $ segments
   -- match the string of  the result with the Enum or else use .selectedIndex
@@ -153,11 +154,11 @@ main' = J.ready $ do
 --      v <- selectId "month"
 --      J.setText v text
 -- validating query must check that at least one field is not nothing.
-  -- NOTE: Some way to use Last in Data.Maybe
-  -- NOTE: just wrap left in Just: Just(x.acc) == q.acc
+  
+-- NOTE: Some way to use Last in Data.Maybe
+-- NOTE: just wrap left in Just: Just(x.acc) == q.acc
 match :: Query -> RichEntry -> Boolean
 match q x = 
---  foldl (&&) zipWith (==?) [q.acc, q.name, q.serotype] [x.acc, x.name, x.seortype]
  (q.acc ==? x.acc) && (q.name ==? x.name) && (q.serotype ==? x.serotype) && datesMatch
  where
    -- the below type declartion is necessary, otherwise it gets infered as String -> String -> Boolean I guess.
@@ -180,30 +181,23 @@ match q x =
     -- (that validates all the enum fields) 
 -- equivalent to handleClick (and will replace it)
 handleQuery input text _ _  = do
---  year     <- fetch (Year . toInt) "year"
-  --month    <- fetch Month "month"
---  day      <- fetch Int "day"
   host     <- toEnum hosts <$> (selectId "host")
   serotype <- toEnum serotypes <$> (selectId "serotype")
   segment  <- toEnum segments <$> (selectId "segment")
   month    <- toEnum months <$> (selectId "month")
--- year     <- toEnum years <$> (selectId "year")
--- day      <- toInt <$> (selectId "month")
+  --year   <- (selectId "year") >>= (\x -> return $ Year <$> (fromString x))
+  yearInt  <- fromString <$> (selectId "year")
+  year     <- return $ Year <$> yearInt
+  day      <- fromString <$> (selectId "month")
   acc      <- fetch id "acc"
   disease  <- fetch id "disease"
   country  <- fetch id "country"
-  return country
+  return country -- TODO: convert to Query and run query
   where 
     fetch f id = f <$> toMaybe <$> selectId id 
     toMaybe s = if ((trim s) == "") then Nothing else Just s
     toEnum :: forall t. (Show t) => Array t -> String -> Maybe t
     toEnum xs s = head $ filter (\x -> s == (show x)) xs
-  --  toHost :: String -> Maybe Host
-    --headMaybe :: forall a. Array a -> Maybe a
-    headMaybe xs = if (nil xs) then Nothing else Just(head xs)
-    nil xs = (length xs) == 0
-    
-    --indexOf x xs = if x `elem` xs Just (length $ takewhile (x /=) xs) else Nothing
     --note: strings are not character arrays in purescript
 
 selectId ::  forall t5. String -> Eff ( dom :: DOM | t5) String 
