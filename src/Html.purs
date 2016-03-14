@@ -1,36 +1,52 @@
-data Attr = Attr String String
-
-appendAll  ::    forall t171 t178. (Traversable t171) => J.JQuery -> t171 J.JQuery -> Eff ( dom :: DOM | t178) Unit --(t171 JQuery) 
-appendAll x xs = traverse_ (flip J.append x) xs
-
-withAttr h (Attr f v) = J.create h >>= (J.setAttr f v) >>= return
-data Node = P []
-
-ul :: Attr -> [HTML] -> HTML
-ul attr elems = do
-  e <- withAttr "<ul>" attr
-  appendAll e elems
-
-ul :: [HTML] -> HTML
-ul_ elems = do
-  e <- J.create "<ul>"
-  appendAll e elems
-
-makeElem :: String -> Attr -> [HTML] -> HTML
-makElem tag attr elems = do
-  e <- withAttr tag attr
-  appendAll e elems
-
-
-makeElem_ :: String ->  [HTML] -> HTML
-makElem_ tag attr elems = do
-  e <- J.create tag
-  appendAll e elems
-
-
-
-tags = ["ul", "li", "p", "button", "input"]
-
-attrs = ["id", "class"]
-
-t ++ " = makeElem " ++ "\"" t ++
+module Html where
+--
+--import Prelude
+--import Control.Monad.Eff.JQuery as J
+--import Data.Foldable (traverse_)
+--import Control.Monad.Eff 
+--import Data.Traversable -- (Traversable typeclass)
+--import DOM -- needed for type signatures
+--
+--data Attr = Attr String String
+--type JDOM = Eff ( dom :: DOM) J.JQuery
+--
+--appendAll  :: forall t171 t178. (Traversable t171) => JDOM -> t171 J.JQuery -> Eff ( dom :: DOM | t178) Unit --(t171 JQuery) 
+----appendAll  :: forall t171 t178. (Traversable t171) => J.JQuery -> t171 J.JQuery -> Eff ( dom :: DOM | t178) Unit --(t171 JQuery) 
+--appendAll x xs = traverse_ (flip J.append x) xs
+--
+---- forall t10. String -> Attr -> Eff ( dom :: DOM | t10) JQuery
+--withAttr h (Attr f v) = J.create h >>= (J.setAttr f v) >>= return
+---- data Node = P Array
+--
+----ul :: Attr -> [HTML] -> HTML
+----ul :: forall t x.  (Traversable t) => Attr ->  -> Eff ( dom :: DOM | x) Unit --(t171 JQuery) 
+----ul attr elems = do
+----  e <- withAttr "<ul>" attr
+----  appendAll e elems
+--
+--ul_ :: forall t x.  (Traversable t) => t JDOM -> Eff ( dom :: DOM | x) J.JQuery --(t171 JQuery) 
+--ul_ elems = do
+--  e <- J.create "<ul>"
+--  appendAll e elems
+--  return e
+--
+----makeElem :: String -> Attr -> [HTML] -> HTML
+--makeElem :: forall t x.  (Traversable t) => String -> Attr -> t JDOM -> Eff ( dom :: DOM | x) J.JQuery --(t171 JQuery) 
+--makeElem tag attr elems = do
+--  e <- withAttr tag attr
+--  appendAll e elems
+--  return e 
+--
+--
+----makeElem_ :: String ->  [HTML] -> HTML
+--makeElem_ :: forall t25 t30 t32. (Traversable t32) => String -> t25 -> t32 JDOM -> Eff ( dom :: DOM | t30) J.JQuery
+--makeElem_ tag attr elems = do
+--  e <- J.create tag
+--  appendAll e elems
+--  return e
+--
+--
+--
+--tags = ["ul", "li", "p", "button", "input"] 
+--attrs = ["id", "class"]
+--
