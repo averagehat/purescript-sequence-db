@@ -9,9 +9,9 @@ import Data.Maybe
 import Html as H
 import Data.Date hiding (fromString) -- https://github.com/purescript/purescript-datetime
 import Data.Traversable -- traverse
-import Control.Apply -- <$>
+import Control.Apply 
 import Data.Foldable -- traverse_?
-import Data.Array (range,  head, length, filter)
+import Data.Array (takeWhile, range,  head, length, filter)
 import Data.String (trim)
 import Data.Foreign.Class (read)
 import Data.Enum (enumFromTo)
@@ -27,26 +27,32 @@ type RichEntry = { name     :: String
                  , acc      :: String
                  , year     :: Year
                  , month    :: Maybe Month
-                 , day      :: Maybe Int
+                 , day      :: Maybe DayOfMonth
                  , country  :: String
                  , host     :: Host
                  , serotype :: Serotype
                  , sequence :: String
                  , segment  :: Maybe Segment}
-                 
+-- these min/maxes should be collapsed into "Range" datatypes
+-- type YearRange = { start :: Year, end :: Year}
+-- type MonthRange = { start :: Month, end :: Month}
+-- type DayRange = { start :: Day, end :: Day}
 type Query = {    name      :: Maybe String
                  , acc      :: Maybe String
                  , minYear  :: Year
                  , maxYear  :: Year
                  , minMonth :: Month
                  , maxMonth :: Month
-                 , minDay   :: Int
-                 , maxDay   :: Int
+                 , minDay   :: DayOfMonth
+                 , maxDay   :: DayOfMonth
                  , country  :: Maybe String
                  , host     :: Maybe Host -- there needs to be a way to turn this dropdown off
                  , serotype :: Maybe Serotype 
                  , segment  :: Maybe Segment}
-             
+--newtype DayOfMonth = Day
+--instance showDayOfMonth :: Show DayOfMonth where
+--  show (DayOfMonth x) = show "DayOfMonth " ++ x
+  
 -- serotypes also act as collection names
 data Host = Human | Mosquito 
 instance showHost :: Show Host where
@@ -70,7 +76,6 @@ instance eqSerotype :: Eq Serotype where -- using eq (show x) (show y) failed
   eq DENV3 DENV3 = true
   eq DENV4 DENV4 = true
   eq _ _ = false
-  
 data Segment = PB1 | PB2 -- ... etc.
 instance showSegment :: Show Segment where
   show PB1 = "PB1"
@@ -78,6 +83,18 @@ instance showSegment :: Show Segment where
 instance eqSegment :: Eq Segment where
   eq x y = (show x) == (show y)
 
+strToSerotype "DENV1" = DENV1
+strToSerotype "DENV2" = DENV2
+strToSerotype "DENV3" = DENV3
+strToSerotype "DENV4" = DENV4
+
+strToSegment "PB1" = PB1
+strToSegment "PB2" = PB2
+
+
+strToHost "Human"    =  Human
+strToHost "Mosquito" =  Mosquito
+ --forall a. (Ord a) => data Range  = Range a a
 -- all these Arrays should go back to being Traversables
 -- this function would be safer if it accepted only Bounded instances.
 rangeOptions :: forall t57. Array String -> Eff ( dom :: DOM | t57) (Array J.JQuery) 
@@ -104,7 +121,6 @@ rangeDropdown id xs = do
 --     [H.makeElem "<p>" (H.Attr "text" "foobar") []]]
                  
 makeTextInput id = do
-  --input <- withId id "<input>"
   input <- J.create "<input>"
   p <- J.create "<b>"
   J.setText (id ++ " ") p
@@ -114,22 +130,20 @@ makeTextInput id = do
   J.append input p
   return p
   
---                 , host     :: Maybe Host
---                 , serotype :: Maybe Serotype 
 main = do
   body <- J.body
   --textInputs <- traverse makeTextInput ["name", "acc", "country"]
   name <- makeTextInput "name"
   acc <- makeTextInput "acc"
   country <- makeTextInput "country"
-  minmonthSelect <-  rangeDropdown "minmonth" $ map show $ enumFromTo January December
-  minyearSelect <-   rangeDropdown "minyear"  $ map show $ range 1900 2016
-  mindaySelect <-    rangeDropdown "minday"   $ map show $ range 1 31
-  maxmonthSelect <-  rangeDropdown "maxmonth" $ map show $ enumFromTo January December
-  maxyearSelect <-   rangeDropdown "maxyear"  $ map show $ range 1900 2016
-  maxdaySelect <-    rangeDropdown "maxday"   $ map show $ range 1 31
-  serotypeSelect <- rangeDropdown  "serotype" $ map show $ serotypes
-  segmentSelect <- rangeDropdown  "segment" $ map show $ segments
+  minmonthSelect <-  rangeDropdown "minMonth" $ map show $ enumFromTo January December
+  maxmonthSelect <-  rangeDropdown "maxMonth" $ map show $ enumFromTo January December
+  minyearSelect <-   rangeDropdown "minYear"  $ map show $ range 1900 2016
+  maxyearSelect <-   rangeDropdown "maxYear"  $ map show $ range 1900 2016
+  mindaySelect <-    rangeDropdown "minDay"   $ map show $ range 1 31
+  maxdaySelect <-    rangeDropdown "maxDay"   $ map show $ range 1 31
+  serotypeSelect <-  rangeDropdown "serotype" $ map show $ serotypes
+  segmentSelect <-   rangeDropdown "segment"  $ map show $ segments
   -- match the string of  the result with the Enum or else use .selectedIndex
    --Right v <- (read <$> (J.getProp "selectedIndex" serotypeSelect))
   --J.setText v name
@@ -180,33 +194,77 @@ match q x =
     -- toEnum 0 :: Maybe Month == January
     -- (that validates all the enum fields) 
 -- equivalent to handleClick (and will replace it)
-handleQuery input text _ _  = do
-  host     <- toEnum hosts <$> (selectId "host")
-  serotype <- toEnum serotypes <$> (selectId "serotype")
-  segment  <- toEnum segments <$> (selectId "segment")
-  month    <- toEnum months <$> (selectId "month")
-  --year   <- (selectId "year") >>= (\x -> return $ Year <$> (fromString x))
-  yearInt  <- fromString <$> (selectId "year")
-  year     <- return $ Year <$> yearInt
-  day      <- fromString <$> (selectId "month")
-  acc      <- fetch id "acc"
-  disease  <- fetch id "disease"
-  country  <- fetch id "country"
-  return country -- TODO: convert to Query and run query
+makeQuery :: Maybe Host -> Maybe Serotype -> Maybe Segment -> Maybe String -> Maybe String -> Maybe String ->  Month -> Month -> DayOfMonth -> DayOfMonth -> Year -> Year -> Query
+makeQuery host serotype segment acc country name minMonth maxMonth minDay maxDay minYear maxYear =
+  { host : host, serotype : serotype
+         , segment : segment, acc : acc
+         , country : country, name: name
+         , minMonth : minMonth, maxMonth : maxMonth
+         , minDay : minDay, maxDay : maxDay
+         , minYear : minYear, maxYear : maxYear }
+                                                                                              
+--getQuery :: forall t. Eff (dom :: DOM | t )  Maybe Query
+getQuery = do
+  host     <- strToHost <$> (selectId "host")
+  serotype <- strToSerotype <$> (selectId "serotype")
+  segment  <- strToSegment <$> (selectId "segment")
+  minMonth <- toEnum months <$> (selectId "minMonth")
+  maxMonth <- toEnum months <$> (selectId "maxMonth")
+  minDay   <- fromString <$> (selectId "minDay") >>= (\x -> return $ DayOfMonth <$> x)
+  maxDay   <- fromString <$> (selectId "maxDay") >>=  (\x -> return $ DayOfMonth <$> x)
+  minYear  <- (selectId "minYear") >>= (\x -> return $ Year <$> (fromString x))
+  maxYear  <- (selectId "maxYear") >>= (\x -> return $ Year <$> (fromString x))
+  acc      <- toMaybe <$> selectId "acc"
+  name     <- toMaybe <$> selectId "name"
+  country  <- toMaybe <$> selectId "country"
+  -- this fixed kinds do not unify with effect DOM because the monadic context here is EFf not maybe (see the type signature)
+  let query = lift4 (makeQuery (Just host) (Just serotype) (Just segment) acc country name minMonth maxMonth) minDay maxDay minYear maxYear :: Maybe Query
+  return query
   where 
-    fetch f id = f <$> toMaybe <$> selectId id 
+    --fetch f id = f <$> toMaybe <$> selectId id 
     toMaybe s = if ((trim s) == "") then Nothing else Just s
-    toEnum :: forall t. (Show t) => Array t -> String -> Maybe t
-    toEnum xs s = head $ filter (\x -> s == (show x)) xs
+    --toEnum :: forall t. (Show t) => Array t -> String -> Maybe t
+    toEnum xs s = fromMaybe January $ head $ filter (\x -> s == (show x)) xs
+showEntry :: RichEntry -> String
+showEntry x =
+  "<p> name: " ++ show x.name ++ "</p>" ++ 
+  "<p> acc: " ++ show x.acc  ++ "</p>" ++
+  "<p> host: " ++ show x.host  ++ "</p>" ++ 
+  "<p> serotype: " ++ show x.serotype  ++ "</p>" ++ 
+  "<p> country: " ++ show x.country  ++ "</p>" ++
+  "<p> Date: " ++ showDate x ++ "</p>"
+  where
+    showDate x = (maybeShow showMonth x.month) ++ (maybeShow showDay x.day) ++ (showYear x.year)
+--    maybeShow :: forall f a. (a -> String) -> Maybe a -> String
+    showDay  (DayOfMonth x) = show x
+    showYear (Year x) =  show x
+    showMonth = show <<< monthToInt
+    monthToInt x = length $ takeWhile (/= x) $ enumFromTo January December
+-- note that if this function is limited to local scope via a `were` clause it requires
+-- a funciton signature to be generic
+maybeShow f x = fromMaybe "" $ (\y -> (f y) ++ "/") <$> x
+--handleQuery input text _ _  = do
+--    query <- getQuery
+--    let entries = getEntries
+--    let matches = filter (match query) entries
+--    let strings = map (\x -> ("<p>" ++ show x ++ "</p>")) entries
+        
+--    return query
     --note: strings are not character arrays in purescript
 
 selectId ::  forall t5. String -> Eff ( dom :: DOM | t5) String 
 selectId s = do
    res <- J.select ("#" ++ s)
    --TODO: I don't understand this bit with read.
+   --TODO: support error states
    Right v <- read <$> J.getValue res
    return v
 
+getEntries = [{ name : "deng01", acc : "01", year : Year 2016, month : Just March, day : Nothing
+, host : Human, serotype : DENV1, sequence : "ACGT", country : "Thailand", segment : Nothing}
+,{ name : "flu02", acc : "02", year : Year 2011, month : Just January, day : Just $ DayOfMonth 2
+, host : Human, serotype : DENV3, sequence : "GGGGGG", country : "USA", segment : Just PB2}
+  ] :: Array RichEntry
 --   No type class instance was found for . .. can often be cured by providing type signature 
 
 
