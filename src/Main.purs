@@ -2,7 +2,9 @@ module Main where
   
 import Prelude
 import Control.Monad.Eff
+import Control.Monad.Cont.Trans
 -- import Control.Monad.Eff.Console
+import Control.Monad.Eff.Console (print)
 import DOM -- needed for type signatures
 import Data.Either 
 import Data.Maybe
@@ -19,6 +21,7 @@ import Data.Int (fromString)
 -- import Data.Tuple
 --import qualified Halogen.HTML.Properties.Indexed as P
 import Control.Monad.Eff.JQuery as J
+import FileReader
 
 -- seqname is sometimes header'd as Strain
 -- may include more granular location?
@@ -83,6 +86,13 @@ instance showSegment :: Show Segment where
 instance eqSegment :: Eq Segment where
   eq x y = (show x) == (show y)
 
+years = range 1900 2016
+days = range 1 31
+months = enumFromTo January December
+serotypes = [DENV1, DENV2, DENV3, DENV4]
+segments = [PB1, PB2]
+hosts = [Mosquito, Human]
+
 strToSerotype "DENV1" = DENV1
 strToSerotype "DENV2" = DENV2
 strToSerotype "DENV3" = DENV3
@@ -133,28 +143,40 @@ makeTextInput id = do
 main = do
   body <- J.body
   --textInputs <- traverse makeTextInput ["name", "acc", "country"]
+  fileInput <- withId "<input>" "infile"
+  J.setAttr "type" "file" fileInput
+  fileButton <- withId "<button>" "filebutton"
+  text <- J.create "<p>"
   name <- makeTextInput "name"
   acc <- makeTextInput "acc"
   country <- makeTextInput "country"
-  minmonthSelect <-  rangeDropdown "minMonth" $ map show $ enumFromTo January December
-  maxmonthSelect <-  rangeDropdown "maxMonth" $ map show $ enumFromTo January December
-  minyearSelect <-   rangeDropdown "minYear"  $ map show $ range 1900 2016
-  maxyearSelect <-   rangeDropdown "maxYear"  $ map show $ range 1900 2016
-  mindaySelect <-    rangeDropdown "minDay"   $ map show $ range 1 31
-  maxdaySelect <-    rangeDropdown "maxDay"   $ map show $ range 1 31
-  serotypeSelect <-  rangeDropdown "serotype" $ map show $ serotypes
-  segmentSelect <-   rangeDropdown "segment"  $ map show $ segments
+  minmonthSelect <-  dropdown "minMonth" $ enumFromTo January December
+  maxmonthSelect <-  dropdown "maxMonth" $ enumFromTo January December
+  minyearSelect <-   dropdown "minYear"  $ range 1900 2016
+  maxyearSelect <-   dropdown "maxYear"  $ range 1900 2016
+  mindaySelect <-    dropdown "minDay"   $ range 1 31
+  maxdaySelect <-    dropdown "maxDay"   $ range 1 31
+  serotypeSelect <-  dropdown "serotype" $ serotypes
+  segmentSelect <-   dropdown "segment"  $ segments
   -- match the string of  the result with the Enum or else use .selectedIndex
    --Right v <- (read <$> (J.getProp "selectedIndex" serotypeSelect))
   --J.setText v name
-  appendAll body ([name, acc, country] ++ [minmonthSelect, serotypeSelect, segmentSelect])
-    ---indexOf x xs = takewhile (x /=) xs
-years = range 1900 2016
-days = range 1 31
-months = enumFromTo January December
-serotypes = [DENV1, DENV2, DENV3, DENV4]
-segments = [PB1, PB2]
-hosts = [Mosquito, Human]
+  appendAll body ([name, acc, country] ++ [minmonthSelect, serotypeSelect, segmentSelect] ++ [fileInput, fileButton, text])
+  J.on "click" (handleClick fileButton text) fileButton
+  where
+    handleClick input text _ _  = do
+      v <- selectId "infile"
+      runContT
+        (readFileCont v)
+        print
+      --readFileImpl v (\Right s -> J.setText s text)
+        --J.setText (readFile' v) text 
+      --J.setText v text  
+   
+dropdown :: forall a b. (Show a) => String -> Array a -> Eff ( dom :: DOM | b) J.JQuery
+dropdown s xs = rangeDropdown s $ map show $ xs
+
+
 main' = J.ready $ do
   body <- J.body
   select <- rangeDropdown "month" (map show $ enumFromTo January December)
@@ -224,7 +246,8 @@ getQuery = do
     --fetch f id = f <$> toMaybe <$> selectId id 
     toMaybe s = if ((trim s) == "") then Nothing else Just s
     --toEnum :: forall t. (Show t) => Array t -> String -> Maybe t
-    toEnum xs s = fromMaybe January $ head $ filter (\x -> s == (show x)) xs
+    toEnum xs s = fromMaybe January $ find (\x -> s == (show x)) xs
+
 showEntry :: RichEntry -> String
 showEntry x =
   "<p> name: " ++ show x.name ++ "</p>" ++ 
